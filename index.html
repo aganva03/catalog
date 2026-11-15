@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Каталог</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --black: #111111;
+    --dark: #2a2a2a;
+    --gray: #8a8a8a;
+    --light-gray: #e8e8e8;
+    --bg: #f7f7f7;
+    --white: #ffffff;
+    --radius: 16px;
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--black);
+    overflow: hidden;
+  }
+  .app { display: flex; flex-direction: column; height: 100vh; }
+  .header {
+    padding: 18px 20px 10px;
+    background: var(--white);
+    border-bottom: 1px solid var(--light-gray);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
+  .add-btn {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: none; background: var(--black); color: var(--white);
+    font-size: 22px; line-height: 1; cursor: pointer;
+    transition: transform .3s var(--ease), background .3s var(--ease);
+  }
+  .add-btn:active { transform: scale(.9); background: var(--dark); }
+  .head-actions { display: flex; align-items: center; gap: 8px; }
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid var(--light-gray); background: var(--white); color: var(--black);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: transform .3s var(--ease), background .3s var(--ease);
+  }
+  .icon-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn:hover { background: var(--bg); }
+  .icon-btn:active { transform: scale(.9); }
+
+  /* Экран резервной копии */
+  .page {
+    position: fixed; inset: 0; z-index: 20; background: var(--bg);
+    display: flex; flex-direction: column;
+    transform: translateX(100%); transition: transform .5s var(--ease);
+  }
+  .page.show { transform: none; }
+  .page-header {
+    padding: 18px 20px 12px; background: var(--white);
+    border-bottom: 1px solid var(--light-gray);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .page-header h1 { font-size: 20px; font-weight: 600; }
+  .back-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--light-gray);
+    background: var(--white); cursor: pointer; font-size: 18px; color: var(--black);
+    transition: transform .3s var(--ease), background .3s var(--ease);
+  }
+  .back-btn:hover { background: var(--bg); }
+  .back-btn:active { transform: scale(.9); }
+  .page-body { padding: 18px 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+  .stat-card {
+    background: var(--white); border-radius: var(--radius); padding: 6px 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--light-gray); font-size: 15px;
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row b { font-weight: 600; color: var(--gray); }
+  .stat-total { font-weight: 600; }
+  .page-body .btn { width: 100%; }
+  .page-note { font-size: 12px; color: var(--gray); line-height: 1.4; }
+
+  .content { flex: 1; overflow-y: auto; padding: 14px 12px 90px; }
+  .grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .card {
+    background: var(--white);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 14px rgba(0,0,0,.04);
+    display: flex; flex-direction: column;
+    cursor: pointer;
+    opacity: 0; transform: translateY(14px);
+    animation: fadeUp .6s var(--ease) forwards;
+    transition: transform .4s var(--ease), box-shadow .4s var(--ease);
+  }
+  .card:active { transform: scale(.97); }
+  @media (hover: hover) {
+    .card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,.09); }
+  }
+  @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+  .card-img {
+    width: 100%; aspect-ratio: 1 / 1; background: var(--light-gray);
+    object-fit: cover; display: block;
+    transition: transform .6s var(--ease);
+  }
+  .card:hover .card-img { transform: scale(1.04); }
+  .card-img-empty {
+    width: 100%; aspect-ratio: 1 / 1; background: var(--light-gray);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--gray); font-size: 13px;
+  }
+  .card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .card-desc { font-size: 13px; color: var(--dark); line-height: 1.35;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+  .card-price { font-size: 15px; font-weight: 600; color: var(--gray); }
+  .card-link {
+    font-size: 12px; color: var(--black); text-decoration: none;
+    border-bottom: 1px solid var(--black); padding-bottom: 1px;
+  }
+  .card-link.hidden { display: none; }
+
+  .empty {
+    grid-column: 1 / -1; text-align: center; color: var(--gray);
+    padding: 60px 20px; font-size: 14px;
+    animation: fadeUp .6s var(--ease) forwards; opacity: 0;
+  }
+
+  /* Нижняя навигация */
+  .tabs {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--white);
+    border-top: 1px solid var(--light-gray);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+  .tab {
+    border: none; background: none; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-size: 12px; color: var(--gray);
+    padding: 6px 0; border-radius: 12px;
+    transition: color .35s var(--ease), background .35s var(--ease);
+  }
+  .tab .ic {
+    width: 46px; height: 30px; border-radius: 15px;
+    display: flex; align-items: center; justify-content: center;
+    background: transparent;
+    transition: background .4s var(--ease), transform .4s var(--ease);
+  }
+  .tab .ic svg {
+    width: 22px; height: 22px; fill: none; stroke: currentColor;
+    stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+    transition: transform .45s var(--ease);
+  }
+  .tab:active .ic { transform: scale(.9); }
+  .tab.active { color: var(--black); font-weight: 600; }
+  .tab.active .ic { background: var(--light-gray); }
+  .tab.active .ic svg { transform: translateY(-1px) scale(1.06); }
+  .tab:not(.active):hover .ic svg { transform: translateY(-1px); }
+
+  /* Модалка */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.35);
+    opacity: 0; pointer-events: none; transition: opacity .4s var(--ease);
+    z-index: 10;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 11;
+    background: var(--white); border-radius: 22px 22px 0 0;
+    max-height: 92vh; overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform .5s var(--ease);
+    padding: 18px 18px calc(22px + env(safe-area-inset-bottom));
+  }
+  .sheet.show { transform: translateY(0); }
+  .sheet-handle { width: 40px; height: 4px; background: var(--light-gray); border-radius: 4px; margin: 0 auto 14px; }
+  .sheet h2 { font-size: 18px; font-weight: 600; margin-bottom: 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--gray); margin-bottom: 6px; }
+  .field input, .field textarea {
+    width: 100%; padding: 12px 14px; border-radius: 12px;
+    border: 1px solid var(--light-gray); background: var(--bg);
+    font-size: 15px; color: var(--black); outline: none;
+    font-family: inherit;
+    transition: border-color .3s var(--ease), background .3s var(--ease);
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--black); background: var(--white); }
+  .field textarea { resize: none; height: 72px; }
+
+  .photo-drop {
+    width: 100%; aspect-ratio: 4/3; border-radius: 12px;
+    background: var(--bg); border: 1px dashed #c8c8c8;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; overflow: hidden; position: relative;
+    color: var(--gray); font-size: 13px;
+    transition: border-color .3s var(--ease);
+  }
+  .photo-drop:hover { border-color: var(--black); }
+  .photo-drop img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .photo-drop input { display: none; }
+
+  .actions { display: flex; gap: 10px; margin-top: 6px; }
+  .btn {
+    flex: 1; padding: 13px; border-radius: 12px; border: none;
+    font-size: 15px; font-weight: 500; cursor: pointer;
+    transition: transform .25s var(--ease), background .3s var(--ease), color .3s var(--ease);
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--black); color: var(--white); }
+  .btn-primary:hover { background: var(--dark); }
+  .btn-ghost { background: var(--light-gray); color: var(--black); }
+
+  .tiny { font-size: 12px; color: var(--gray); margin-top: 4px; }
+
+  .preview-wrap { margin: 0 0 16px; }
+  .preview-label { font-size: 12px; color: var(--gray); text-align: center; margin-bottom: 8px; }
+  .preview {
+    width: 180px; margin: 0 auto; background: var(--white); border-radius: var(--radius);
+    overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px rgba(0,0,0,.08);
+    transition: box-shadow .4s var(--ease);
+  }
+  .preview .card-img, .preview .card-img-empty { transition: none; }
+  .preview .card-img { font-size: 0; }
+  .card { position: relative; }
+  .more-btn {
+    position: absolute; top: 8px; right: 8px; z-index: 2;
+    width: 30px; height: 30px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.92); color: var(--black);
+    font-size: 16px; line-height: 1; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+    transition: transform .3s var(--ease), background .3s var(--ease);
+  }
+  .more-btn:active { transform: scale(.88); }
+  .more-menu {
+    position: absolute; top: 44px; right: 8px; z-index: 3;
+    background: var(--white); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 10px 28px rgba(0,0,0,.16);
+    min-width: 140px;
+    opacity: 0; transform: translateY(-6px) scale(.97); transform-origin: top right;
+    pointer-events: none;
+    transition: opacity .3s var(--ease), transform .3s var(--ease);
+  }
+  .more-menu.open { opacity: 1; transform: none; pointer-events: auto; }
+  .more-menu button {
+    display: block; width: 100%; padding: 12px 16px; border: none; background: none;
+    text-align: left; font-size: 14px; color: var(--black); cursor: pointer;
+    transition: background .25s var(--ease);
+  }
+  .more-menu button:hover { background: var(--bg); }
+  .more-menu button.danger { color: var(--black); border-top: 1px solid var(--light-gray); }
+  .more-menu button.danger:hover { background: var(--black); color: var(--white); }
+
+  .card.removing { animation: fadeOut .35s var(--ease) forwards; }
+  @keyframes fadeOut { to { opacity: 0; transform: scale(.94); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <h1 id="title">Шоколад</h1>
+    <div class="head-actions">
+      <button class="icon-btn" id="backupBtn" aria-label="Резервная копия" title="Резервная копия">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>
+      </button>
+      <button class="add-btn" id="addBtn" aria-label="Добавить">+</button>
+    </div>
+    <input type="file" id="importInput" accept="application/json,.json" hidden>
+  </header>
+
+  <main class="content">
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-cat="chocolate"><span class="ic">
+      <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 6v12M15 6v12M3 12h18"/></svg>
+    </span>Шоколад</button>
+    <button class="tab" data-cat="boxes"><span class="ic">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="5" rx="1.2"/><path d="M5 10v9h14v-9M10 14h4"/></svg>
+    </span>Коробки</button>
+    <button class="tab" data-cat="ribbons"><span class="ic">
+      <svg viewBox="0 0 24 24"><path d="M12 12C9 7 4 7 5 11c.5 2 4 2 7 1M12 12c3-5 8-5 7-1-.5 2-4 2-7 1"/><path d="M12 12l-3.5 8M12 12l3.5 8"/></svg>
+    </span>Ленточки</button>
+    <button class="tab" data-cat="bags"><span class="ic">
+      <svg viewBox="0 0 24 24"><path d="M5 8h14l-1.2 12H6.2L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+    </span>Пакеты</button>
+  </nav>
+</div>
+
+<section class="page" id="backupPage">
+  <div class="page-header">
+    <button class="back-btn" id="backBtn" aria-label="Назад">←</button>
+    <h1>Резервная копия</h1>
+  </div>
+  <div class="page-body">
+    <div class="stat-card" id="stats"></div>
+    <button class="btn btn-primary" id="exportBtn">Скачать копию всех карточек</button>
+    <button class="btn btn-ghost" id="importBtn">Загрузить из файла</button>
+    <div class="page-note">Копия включает все вкладки и фото. Загрузка заменяет текущий каталог.</div>
+  </div>
+</section>
+
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <h2 id="sheetTitle">Новая карточка</h2>
+
+  <div class="preview-wrap">
+    <div class="preview-label">Так будет выглядеть</div>
+    <div class="preview" id="preview"></div>
+  </div>
+
+  <div class="field">
+    <label>Фото</label>
+    <label class="photo-drop" id="photoDrop">
+      <span id="photoHint">Нажмите, чтобы загрузить фото</span>
+      <img id="photoPreview" hidden>
+      <input type="file" id="photoInput" accept="image/*">
+    </label>
+  </div>
+  <div class="field">
+    <label>Ссылка</label>
+    <input type="url" id="fLink" placeholder="https://...">
+  </div>
+  <div class="field">
+    <label>Краткое описание</label>
+    <textarea id="fDesc" maxlength="140" placeholder="Коротко о товаре"></textarea>
+  </div>
+  <div class="field">
+    <label>Стоимость</label>
+    <input type="text" id="fPrice" placeholder="например, 1 290 ₽">
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-ghost" id="cancelBtn">Отмена</button>
+    <button class="btn btn-primary" id="saveBtn">Сохранить</button>
+  </div>
+</div>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  const CATS = {
+    chocolate: "Шоколад",
+    boxes: "Коробки",
+    ribbons: "Ленточки",
+    bags: "Пакеты"
+  };
+  const STORE = "catalog_v1";
+  let state = JSON.parse(localStorage.getItem(STORE) || "{}");
+  for (const k of Object.keys(CATS)) state[k] ||= [];
+  let current = "chocolate";
+  let pendingPhoto = null;
+
+  const $ = id => document.getElementById(id);
+  const grid = $("grid");
+
+  function save() { localStorage.setItem(STORE, JSON.stringify(state)); }
+
+  function render() {
+    $("title").textContent = CATS[current];
+    const items = state[current];
+    if (!items.length) {
+      grid.innerHTML = `<div class="empty">Пока здесь пусто.<br>Нажмите «+», чтобы добавить карточку.</div>`;
+      return;
+    }
+    grid.innerHTML = items.map((it, i) => `
+      <div class="card" style="animation-delay:${i * 60}ms" data-id="${it.id}">
+        ${it.photo
+          ? `<img class="card-img" src="${it.photo}" alt="">`
+          : `<div class="card-img-empty">Нет фото</div>`}
+        <div class="card-body">
+          <div class="card-desc">${escapeHtml(it.desc || "Без описания")}</div>
+          <div class="card-foot">
+            <span class="card-price">${escapeHtml(it.price || "—")}</span>
+            ${it.link ? `<a class="card-link" href="${escapeAttr(it.link)}" target="_blank" rel="noopener">Открыть</a>` : ""}
+          </div>
+        </div>
+        <button class="more-btn" data-act="menu" data-id="${it.id}" aria-label="Действия">⋯</button>
+        <div class="more-menu" data-menu="${it.id}">
+          <button data-act="edit" data-id="${it.id}">Изменить</button>
+          <button class="danger" data-act="delete" data-id="${it.id}">Удалить</button>
+        </div>
+      </div>`).join("");
+  }
+
+  // Делегирование кликов по кнопкам карточек
+  function closeMenus(except = null) {
+    document.querySelectorAll(".more-menu.open").forEach(m => {
+      if (m !== except) m.classList.remove("open");
+    });
+  }
+
+  grid.addEventListener("click", e => {
+    const btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    e.stopPropagation();
+    const id = btn.dataset.id;
+    const act = btn.dataset.act;
+    if (act === "menu") {
+      const menu = btn.parentElement.querySelector(".more-menu");
+      const willOpen = !menu.classList.contains("open");
+      closeMenus(menu);
+      menu.classList.toggle("open", willOpen);
+      tg?.HapticFeedback?.selectionChanged();
+      return;
+    }
+    closeMenus();
+    if (act === "edit") openSheet(id);
+    if (act === "delete") deleteItem(id, btn.closest(".card"));
+  });
+
+  // Закрыть меню при нажатии вне его
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".more-btn, .more-menu")) closeMenus();
+  });
+
+  function deleteItem(id, cardEl) {
+    const doDelete = () => {
+      state[current] = state[current].filter(x => x.id !== id);
+      save();
+      render();
+      tg?.HapticFeedback?.notificationOccurred("warning");
+    };
+    const msg = "Удалить карточку?";
+    const confirmFn = tg?.showConfirm
+      ? cb => tg.showConfirm(msg, cb)
+      : cb => cb(confirm(msg));
+    confirmFn(ok => {
+      if (!ok) return;
+      if (cardEl) {
+        cardEl.classList.add("removing");
+        setTimeout(doDelete, 350);
+      } else doDelete();
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  // Табы
+  document.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      current = btn.dataset.cat;
+      render();
+      tg?.HapticFeedback?.selectionChanged();
+    });
+  });
+
+  // Модалка
+  let editingId = null;
+
+  function openSheet(id = null) {
+    editingId = id;
+    const it = id ? state[current].find(x => x.id === id) : null;
+    pendingPhoto = it?.photo || null;
+    $("sheetTitle").textContent = it ? "Редактирование" : "Новая карточка";
+    $("saveBtn").textContent = it ? "Сохранить изменения" : "Сохранить";
+    $("fLink").value = it?.link || "";
+    $("fDesc").value = it?.desc || "";
+    $("fPrice").value = it?.price || "";
+    if (pendingPhoto) {
+      $("photoPreview").src = pendingPhoto;
+      $("photoPreview").hidden = false;
+      $("photoHint").hidden = true;
+    } else {
+      $("photoPreview").hidden = true;
+      $("photoPreview").src = "";
+      $("photoHint").hidden = false;
+    }
+    $("photoInput").value = "";
+    updatePreview();
+    snapshot = formState();
+    $("overlay").classList.add("show");
+    $("sheet").classList.add("show");
+  }
+  function closeSheet() {
+    $("overlay").classList.remove("show");
+    $("sheet").classList.remove("show");
+  }
+  $("addBtn").onclick = openSheet;
+  // Превью и отслеживание изменений
+  let snapshot = "";
+  function formState() {
+    return JSON.stringify([$("fLink").value, $("fDesc").value, $("fPrice").value, pendingPhoto]);
+  }
+  function updatePreview() {
+    const desc = $("fDesc").value.trim();
+    const price = $("fPrice").value.trim();
+    $("preview").innerHTML = `
+      ${pendingPhoto
+        ? `<img class="card-img" src="${pendingPhoto}" alt="">`
+        : `<div class="card-img-empty">Нет фото</div>`}
+      <div class="card-body">
+        <div class="card-desc">${escapeHtml(desc || "Описание")}</div>
+        <div class="card-foot"><span class="card-price">${escapeHtml(price || "—")}</span></div>
+      </div>`;
+  }
+  ["fLink", "fDesc", "fPrice"].forEach(id => $(id).addEventListener("input", updatePreview));
+
+  // Закрытие с защитой от потери данных
+  function requestClose() {
+    if (formState() === snapshot) {
+      editingId = null;
+      closeSheet();
+      return;
+    }
+    const msg = "Закрыть без сохранения? Введённые данные будут потеряны.";
+    const go = () => { editingId = null; closeSheet(); };
+    if (tg?.showConfirm) tg.showConfirm(msg, ok => { if (ok) go(); });
+    else if (confirm(msg)) go();
+  }
+  $("cancelBtn").onclick = requestClose;
+  $("overlay").onclick = requestClose;
+
+  // Фото: сжимаем, чтобы localStorage не переполнялся
+  $("photoInput").addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 600;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement("canvas");
+        c.width = img.width * scale; c.height = img.height * scale;
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        pendingPhoto = c.toDataURL("image/jpeg", 0.82);
+        updatePreview();
+        $("photoPreview").src = pendingPhoto;
+        $("photoPreview").hidden = false;
+        $("photoHint").hidden = true;
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $("saveBtn").onclick = () => {
+    const link = $("fLink").value.trim();
+    const desc = $("fDesc").value.trim();
+    const price = $("fPrice").value.trim();
+    if (!desc && !price && !pendingPhoto) {
+      tg?.showAlert ? tg.showAlert("Заполните хотя бы одно поле") : alert("Заполните хотя бы одно поле");
+      return;
+    }
+    if (editingId) {
+      const it = state[current].find(x => x.id === editingId);
+      if (it) Object.assign(it, { photo: pendingPhoto, link, desc, price });
+    } else {
+      state[current].unshift({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        photo: pendingPhoto, link, desc, price
+      });
+    }
+    editingId = null;
+    save();
+    closeSheet();
+    render();
+    tg?.HapticFeedback?.notificationOccurred("success");
+  };
+
+  // Экран резервной копии
+  function renderStats() {
+    let total = 0;
+    const rows = Object.keys(CATS).map(k => {
+      const n = state[k].length;
+      total += n;
+      return `<div class="stat-row"><span>${CATS[k]}</span><b>${n}</b></div>`;
+    }).join("");
+    $("stats").innerHTML = rows + `<div class="stat-row stat-total"><span>Всего</span><span>${total}</span></div>`;
+  }
+  function openBackup() {
+    renderStats();
+    $("backupPage").classList.add("show");
+    tg?.HapticFeedback?.selectionChanged();
+  }
+  $("backupBtn").onclick = openBackup;
+  $("backBtn").onclick = () => $("backupPage").classList.remove("show");
+
+  // Экспорт и импорт каталога в JSON-файл
+  $("exportBtn").onclick = () => {
+    const payload = { app: "catalog", version: 1, exported: new Date().toISOString(), data: state };
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const day = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `catalog-backup-${day}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    tg?.HapticFeedback?.notificationOccurred("success");
+  };
+
+  $("importBtn").onclick = () => $("importInput").click();
+
+  $("importInput").addEventListener("change", e => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch {
+        return notify("Файл повреждён или это не JSON");
+      }
+      const data = parsed?.data ?? parsed;
+      if (!data || typeof data !== "object" || !Object.keys(CATS).some(k => Array.isArray(data[k]))) {
+        return notify("Это не файл каталога");
+      }
+      const apply = () => {
+        const next = {};
+        for (const k of Object.keys(CATS)) next[k] = Array.isArray(data[k]) ? data[k] : [];
+        state = next;
+        save();
+        render();
+        renderStats();
+        tg?.HapticFeedback?.notificationOccurred("success");
+      };
+      const msg = "Заменить текущий каталог данными из файла?";
+      if (tg?.showConfirm) tg.showConfirm(msg, ok => { if (ok) apply(); });
+      else if (confirm(msg)) apply();
+    };
+    reader.readAsText(file);
+  });
+
+  function notify(msg) {
+    tg?.showAlert ? tg.showAlert(msg) : alert(msg);
+  }
+
+  render();
+</script>
+</body>
+</html>
