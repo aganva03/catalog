@@ -492,7 +492,7 @@
     $("overlay").classList.remove("show");
     $("sheet").classList.remove("show");
   }
-  $("addBtn").onclick = openSheet;
+  $("addBtn").onclick = () => openSheet();
   // Превью и отслеживание изменений
   let snapshot = "";
   function formState() {
