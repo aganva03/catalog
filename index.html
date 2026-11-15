@@ -184,6 +184,21 @@
   .sheet.show { transform: translateY(0); }
   .sheet-handle { width: 40px; height: 4px; background: var(--light-gray); border-radius: 4px; margin: 0 auto 14px; }
   .sheet h2 { font-size: 18px; font-weight: 600; margin-bottom: 14px; }
+  .sheet-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .sheet-top h2 { margin: 0; }
+  .sheet-close {
+    width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--light-gray);
+    background: var(--white); color: var(--black); font-size: 16px; line-height: 1; cursor: pointer;
+    transition: transform .3s var(--ease), background .3s var(--ease);
+  }
+  .sheet-close:hover { background: var(--bg); }
+  .sheet-close:active { transform: scale(.9); }
+  .price-wrap { position: relative; }
+  .price-wrap input { padding-right: 56px; }
+  .price-suffix {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; color: var(--gray); pointer-events: none;
+  }
   .field { margin-bottom: 12px; }
   .field label { display: block; font-size: 12px; color: var(--gray); margin-bottom: 6px; }
   .field input, .field textarea {
@@ -312,7 +327,10 @@
 <div class="overlay" id="overlay"></div>
 <div class="sheet" id="sheet">
   <div class="sheet-handle"></div>
-  <h2 id="sheetTitle">Новая карточка</h2>
+  <div class="sheet-top">
+    <h2 id="sheetTitle">Новая карточка</h2>
+    <button class="sheet-close" id="closeX" aria-label="Закрыть">✕</button>
+  </div>
 
   <div class="preview-wrap">
     <div class="preview-label">Так будет выглядеть</div>
@@ -337,7 +355,10 @@
   </div>
   <div class="field">
     <label>Стоимость</label>
-    <input type="text" id="fPrice" placeholder="например, 1 290 ₽">
+    <div class="price-wrap">
+      <input type="text" id="fPrice" inputmode="decimal" placeholder="например, 45">
+      <span class="price-suffix">BYN</span>
+    </div>
   </div>
 
   <div class="actions">
@@ -382,7 +403,7 @@
         <div class="card-body">
           <div class="card-desc">${escapeHtml(it.desc || "Без описания")}</div>
           <div class="card-foot">
-            <span class="card-price">${escapeHtml(it.price || "—")}</span>
+            <span class="card-price">${fmtPrice(it.price)}</span>
             ${it.link ? `<a class="card-link" href="${escapeAttr(it.link)}" target="_blank" rel="noopener">Открыть</a>` : ""}
           </div>
         </div>
@@ -450,6 +471,16 @@
   }
   function escapeAttr(s) { return escapeHtml(s); }
 
+  // Цена в белорусских рублях: "45" -> "45 BYN"
+  function fmtPrice(p) {
+    return p ? `${escapeHtml(p)} BYN` : "—";
+  }
+  function normPrice(raw) {
+    const v = String(raw || "").trim().replace(",", ".").replace(/[^\d.]/g, "");
+    const parts = v.split(".");
+    return parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : v;
+  }
+
   // Табы
   document.querySelectorAll(".tab").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -500,14 +531,14 @@
   }
   function updatePreview() {
     const desc = $("fDesc").value.trim();
-    const price = $("fPrice").value.trim();
+    const price = normPrice($("fPrice").value);
     $("preview").innerHTML = `
       ${pendingPhoto
         ? `<img class="card-img" src="${pendingPhoto}" alt="">`
         : `<div class="card-img-empty">Нет фото</div>`}
       <div class="card-body">
         <div class="card-desc">${escapeHtml(desc || "Описание")}</div>
-        <div class="card-foot"><span class="card-price">${escapeHtml(price || "—")}</span></div>
+        <div class="card-foot"><span class="card-price">${fmtPrice(price)}</span></div>
       </div>`;
   }
   ["fLink", "fDesc", "fPrice"].forEach(id => $(id).addEventListener("input", updatePreview));
@@ -525,6 +556,7 @@
     else if (confirm(msg)) go();
   }
   $("cancelBtn").onclick = requestClose;
+  $("closeX").onclick = requestClose;
   $("overlay").onclick = requestClose;
 
   // Фото: сжимаем, чтобы localStorage не переполнялся
@@ -554,7 +586,7 @@
   $("saveBtn").onclick = () => {
     const link = $("fLink").value.trim();
     const desc = $("fDesc").value.trim();
-    const price = $("fPrice").value.trim();
+    const price = normPrice($("fPrice").value);
     if (!desc && !price && !pendingPhoto) {
       tg?.showAlert ? tg.showAlert("Заполните хотя бы одно поле") : alert("Заполните хотя бы одно поле");
       return;
